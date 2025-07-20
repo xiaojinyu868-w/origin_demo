@@ -72,6 +72,11 @@ class MessageRequest(BaseModel):
     image_uris: Optional[List[str]] = None
     voice_files: Optional[List[str]] = None  # Base64 encoded voice files
     memorizing: bool = False
+    # 教育模式相关字段
+    educational_mode: bool = False
+    system_prompt: Optional[str] = None
+    student_info: Optional[dict] = None
+    question_context: Optional[dict] = None
 
 class MessageResponse(BaseModel):
     response: str
@@ -358,12 +363,21 @@ async def send_streaming_message_endpoint(request: MessageRequest):
             async def run_agent():
                 try:
                     
+                    # 处理教育模式的消息
+                    final_message = request.message
+                    if request.educational_mode and request.system_prompt:
+                        # 在教育模式下，将系统提示词和用户消息组合
+                        if request.message:
+                            final_message = f"{request.system_prompt}\n\n用户说: {request.message}"
+                        else:
+                            final_message = f"{request.system_prompt}\n\n请开始辅导这位学生。"
+                    
                     # Run agent.send_message in a background thread to avoid blocking
                     loop = asyncio.get_event_loop()
                     response = await loop.run_in_executor(
                         None,  # Use default ThreadPoolExecutor
                         lambda: agent.send_message(
-                            message=request.message,
+                            message=final_message,
                             image_uris=request.image_uris,
                             voice_files=request.voice_files,  # Pass raw voice files
                             memorizing=request.memorizing,

@@ -3,6 +3,7 @@ import ChatWindow from './components/ChatWindow';
 import SettingsPanel from './components/SettingsPanel';
 import ScreenshotMonitor from './components/ScreenshotMonitor';
 import ExistingMemory from './components/ExistingMemory';
+import LearningScene from './components/LearningScene';
 import ApiKeyModal from './components/ApiKeyModal';
 import BackendLoadingModal from './components/BackendLoadingModal';
 import Logo from './components/Logo';
@@ -10,7 +11,7 @@ import queuedFetch from './utils/requestQueue';
 import './App.css';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('chat');
+  const [activeTab, setActiveTab] = useState('learning');
   const [settings, setSettings] = useState({
     model: 'gpt-4o-mini',
     persona: 'helpful_assistant',
@@ -324,6 +325,12 @@ function App() {
         </div>
         <div className="tabs">
           <button 
+            className={`tab ${activeTab === 'learning' ? 'active' : ''}`}
+            onClick={() => setActiveTab('learning')}
+          >
+            🎓 智能辅导
+          </button>
+          <button 
             className={`tab ${activeTab === 'chat' ? 'active' : ''}`}
             onClick={() => setActiveTab('chat')}
           >
@@ -374,6 +381,18 @@ function App() {
         <div style={{ display: activeTab === 'screenshots' ? 'block' : 'none' }}>
           <ScreenshotMonitor settings={settings} />
         </div>
+        {activeTab === 'learning' && (
+          <LearningScene 
+            settings={settings}
+            onApiKeyRequired={(missingKeys, modelType) => {
+              setApiKeyModal({
+                isOpen: true,
+                missingKeys,
+                modelType
+              });
+            }}
+          />
+        )}
         {activeTab === 'memory' && (
           <ExistingMemory settings={settings} />
         )}

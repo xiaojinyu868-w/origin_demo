@@ -53,8 +53,8 @@ def encode_image(image_path):
             return image_path
         else:
             # File path, need to encode image
-            with open(image_path, "rb") as img_file:
-                return base64.b64encode(img_file.read()).decode("utf-8")
+    with open(image_path, "rb") as img_file:
+        return base64.b64encode(img_file.read()).decode("utf-8")
     except Exception as e:
         # Log error but don't crash
         import logging
@@ -81,25 +81,25 @@ def get_image_mime_type(image_path):
             return mime_type
         else:
             # File path, need to detect image mime type
-            # Use PIL to detect the image format
-            with Image.open(image_path) as img:
-                format_lower = img.format.lower() if img.format else None
-                
-                # Map PIL formats to MIME types
-                format_to_mime = {
-                    'jpeg': 'image/jpeg',
-                    'jpg': 'image/jpeg', 
-                    'png': 'image/png',
-                    'gif': 'image/gif',
-                    'bmp': 'image/bmp',
-                    'webp': 'image/webp',
-                    'tiff': 'image/tiff',
-                    'tif': 'image/tiff',
-                    'ico': 'image/x-icon',
-                    'svg': 'image/svg+xml'
-                }
-                
-                return format_to_mime.get(format_lower, 'image/jpeg')  # Default to jpeg if unknown
+        # Use PIL to detect the image format
+        with Image.open(image_path) as img:
+            format_lower = img.format.lower() if img.format else None
+            
+            # Map PIL formats to MIME types
+            format_to_mime = {
+                'jpeg': 'image/jpeg',
+                'jpg': 'image/jpeg', 
+                'png': 'image/png',
+                'gif': 'image/gif',
+                'bmp': 'image/bmp',
+                'webp': 'image/webp',
+                'tiff': 'image/tiff',
+                'tif': 'image/tiff',
+                'ico': 'image/x-icon',
+                'svg': 'image/svg+xml'
+            }
+            
+            return format_to_mime.get(format_lower, 'image/jpeg')  # Default to jpeg if unknown
             
     except Exception as e:
         # If PIL fails, try using mimetypes module as fallback
@@ -891,7 +891,7 @@ class AgentWrapper():
                         self.logger.info(f"✅ Processing base64 image data (length: {len(image_uri)} chars)")
                     else:
                         # File path, need to encode image
-                        mime_type = get_image_mime_type(image_uri)
+                    mime_type = get_image_mime_type(image_uri)
                         encoded_image = encode_image(image_uri)
                         message.append({'type': 'image_data', 'image_data': {'data': f"data:{mime_type};base64,{encoded_image}", 'detail': 'auto'}})
                         self.logger.info(f"✅ Processing file path image: {image_uri}")

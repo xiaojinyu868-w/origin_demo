@@ -6,7 +6,13 @@ import ClearChatModal from './ClearChatModal';
 import queuedFetch from '../utils/requestQueue';
 import './ChatWindow.css';
 
-const ChatWindow = ({ settings, messages, setMessages }) => {
+const ChatWindow = ({ 
+  settings, 
+  messages, 
+  setMessages, 
+  onApiKeyRequired,
+  isEducationalMode = false 
+}) => {
   const [includeScreenshots, setIncludeScreenshots] = useState(true);
   const [currentModel, setCurrentModel] = useState(settings.model); // Track actual current model
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
@@ -310,6 +316,8 @@ const ChatWindow = ({ settings, messages, setMessages }) => {
   };
 
   const sendMessage = async (messageText, imageFiles = []) => {
+    console.log('📤 Sending message:', messageText, 'Educational mode:', isEducationalMode);
+    
     if (!messageText.trim() && imageFiles.length === 0) return;
 
     // Save images to local directory first
@@ -325,7 +333,14 @@ const ChatWindow = ({ settings, messages, setMessages }) => {
       timestamp: new Date().toISOString()
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    console.log('👤 Adding user message to conversation, current messages count:', messages?.length);
+    console.log('🔍 User message being added:', userMessage);
+    setMessages(prev => {
+      console.log('📝 Previous messages:', prev?.length, prev);
+      const newMessages = [...prev, userMessage];
+      console.log('✅ Updated messages:', newMessages.length, newMessages);
+      return newMessages;
+    });
     
     // Generate unique request ID for this specific message
     const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -337,6 +352,7 @@ const ChatWindow = ({ settings, messages, setMessages }) => {
     // Add to active streaming requests
     setActiveStreamingRequests(prev => new Map([...prev, [requestId, { streamingContent: '' }]]));
 
+    let streamEnded = false; // 移到try块外面定义
     let cleanup = null;
     try {
       let imageUris = null;
@@ -351,11 +367,24 @@ const ChatWindow = ({ settings, messages, setMessages }) => {
         });
       }
 
+      // 构建请求数据，在教育模式下添加特殊的系统提示词
       const requestData = {
         message: messageText || null,
         image_uris: imageUris,
         memorizing: false
       };
+
+      // 如果是教育模式，添加教育场景的系统提示词
+      if (isEducationalMode && settings.educationalContext) {
+        requestData.educational_mode = true;
+        requestData.system_prompt = settings.educationalContext.systemPrompt;
+        requestData.student_info = {
+          name: settings.educationalContext.student.name,
+          characteristics: settings.educationalContext.student.characteristics,
+          weakPoints: settings.educationalContext.student.weakPoints
+        };
+        requestData.question_context = settings.educationalContext.question;
+      }
 
       const result = await queuedFetch(`${settings.serverUrl}/send_streaming_message`, {
         method: 'POST',
@@ -378,7 +407,7 @@ const ChatWindow = ({ settings, messages, setMessages }) => {
       const decoder = new TextDecoder();
       let buffer = '';
 
-      while (true) {
+      while (true && !streamEnded) {
         const { done, value } = await reader.read();
         
         if (done) break;
@@ -415,13 +444,19 @@ const ChatWindow = ({ settings, messages, setMessages }) => {
                 setShowApiKeyModal(true);
                 return; // Don't continue processing
               } else if (data.type === 'final') {
+                console.log('🎯 Received final response:', data.response);
                 const assistantMessage = {
                   id: Date.now() + 1,
                   type: 'assistant',
                   content: data.response,
                   timestamp: new Date().toISOString()
                 };
-                setMessages(prev => [...prev, assistantMessage]);
+                setMessages(prev => {
+                  const newMessages = [...prev, assistantMessage];
+                  console.log('💬 Final messages state:', newMessages);
+                  return newMessages;
+                });
+                streamEnded = true; // 标记流结束，退出整个while循环
                 break;
               } else if (data.type === 'error') {
                 throw new Error(data.error);
@@ -446,10 +481,13 @@ const ChatWindow = ({ settings, messages, setMessages }) => {
         setMessages(prev => [...prev, errorMessage]);
       }
     } finally {
+      console.log('🧹 Cleaning up request:', requestId, 'streamEnded:', streamEnded);
+      
       // Clean up this request
       setActiveStreamingRequests(prev => {
         const updated = new Map(prev);
         updated.delete(requestId);
+        console.log('🗑️ Removed streaming request:', requestId);
         return updated;
       });
       
@@ -613,7 +651,7 @@ const ChatWindow = ({ settings, messages, setMessages }) => {
         </div>
 
         <div className="messages-container">
-          {messages.length === 0 && (
+          {messages.length === 0 && !isEducationalMode && (
             <div className="welcome-message">
               <h2>Welcome to MIRIX!</h2>
               <p>Start a conversation with your AI assistant.</p>
@@ -625,6 +663,7 @@ const ChatWindow = ({ settings, messages, setMessages }) => {
             </div>
           )}
           
+          {console.log('🎭 Rendering messages in ChatWindow:', messages?.length, messages) || null}
           {messages.map(message => (
             <ChatBubble key={message.id} message={message} />
           ))}
